@@ -21,11 +21,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required SDK packages
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      # NOTE: android-actions/setup-android@v3 is broken on current runners
+      # (it runs `sdkmanager tools`, which now exits 1). The ubuntu runner already
+      # ships an Android SDK, so use its sdkmanager directly.
+      - name: Ensure Android SDK packages
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMGR="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMGR" ]; then
+            SDKMGR="$(find "$SDK" -type f -name sdkmanager | head -n 1)"
+          fi
+          echo "ANDROID_HOME=$SDK"
+          echo "sdkmanager=$SDKMGR"
+          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+          "$SDKMGR" "platforms;android-34" "build-tools;34.0.0" || true
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
